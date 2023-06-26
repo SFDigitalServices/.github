@@ -1,0 +1,44 @@
+name: Set npm package version
+
+on:
+  workflow_call:
+    inputs:
+      package_version:
+        type: string
+        required: true
+      install:
+        type: string
+        required: false
+        default: npm ci
+      node_version:
+        type: number
+        required: false
+        default: 18
+      secrets:
+        gh_token:
+          required: true
+        npm_token:
+          required: true
+
+jobs:
+  set_version:
+    name: Publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Set GIT_SHA, PKG_VERSION
+        run: |
+          echo "GIT_SHA=$( git rev-parse --short HEAD )" >> $GITHUB_ENV
+          echo "PKG_VERSION=$(jq -r .version package.json)" >> $GITHUB_ENV
+      - name: Set version in package.json
+        run: |
+          export PUB_VERSION="$PKG_VERSION"
+          if [ "${{ inputs.package_version }}" = "canary" ]; then
+            export PUB_VERSION="0.0.0-${GIT_SHA}"
+          elif [ "${{ inputs.package_version }}" != "" ]; then
+            export PUB_VERSION="${{ inputs.package_version }}"
+          fi
+          if [ "$PUB_VERSION" != "$PKG_VERSION" ]; then
+            echo "$( jq '.version = "$PUB_VERSION"' package.json )" > package.json
+          fi
